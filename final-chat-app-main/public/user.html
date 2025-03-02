@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clerk Authentication</title>
+    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest"></script>
+    <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
+</head>
+<body>
+    <h1>Welcome to My App</h1>
+    <p id="user-info">You are not signed in.</p>
+    <button id="sign-in-btn" style="display: none;">Sign In</button>
+    <button id="sign-out-btn" style="display: none;">Sign Out</button>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            if (typeof CLERK_FRONTEND_API_KEY === "undefined") {
+                console.error("Clerk API Key is missing! Make sure config.js is loaded.");
+                document.getElementById("user-info").innerText = "Error: Clerk API Key missing.";
+                return;
+            }
+
+            window.Clerk.load(CLERK_FRONTEND_API_KEY).then(async (clerk) => {
+                if (clerk.user) {
+                    document.getElementById("user-info").innerText = `Welcome, ${clerk.user.firstName}!`;
+                    document.getElementById("sign-in-btn").style.display = "none";
+                    document.getElementById("sign-out-btn").style.display = "block";
+                } else {
+                    document.getElementById("sign-in-btn").style.display = "block";
+                    document.getElementById("sign-out-btn").style.display = "none";
+                }
+
+                document.getElementById("sign-in-btn").addEventListener("click", async () => {
+                    await clerk.openSignIn();
+                });
+
+                document.getElementById("sign-out-btn").addEventListener("click", async () => {
+                    await clerk.signOut();
+                    location.reload();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

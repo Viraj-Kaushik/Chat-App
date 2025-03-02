@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <title>ChatCord App</title>
+
+    <!-- Clerk Authentication -->
+    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest"></script>
+    <script src="/config.js"></script>
+</head>
+<body>
+    <div class="join-container">
+        <header class="join-header">
+            <h1><i class="fas fa-smile"></i> ChatCord</h1>
+        </header>
+        <main class="join-main">
+            <div id="auth-container">
+                <p id="user-info">Checking authentication...</p>
+                <button id="sign-in-btn" style="display: none;" class="btn">Sign In</button>
+                <button id="sign-out-btn" style="display: none;" class="btn">Sign Out</button>
+            </div>
+            
+            <div id="room-form" style="display: none;">
+                <form action="chat.html">
+                    <div class="form-control">
+                        <label for="room">Room</label>
+                        <select name="room" id="room">
+                            <option value="JavaScript">JavaScript</option>
+                            <option value="Python">Python</option>
+                            <option value="PHP">PHP</option>
+                            <option value="C#">C#</option>
+                            <option value="Ruby">Ruby</option>
+                            <option value="Java">Java</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn">Join Chat</button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            if (typeof CLERK_FRONTEND_API_KEY === "undefined") {
+                console.error("Clerk API Key is missing! Make sure config.js is loaded.");
+                document.getElementById("user-info").innerText = "Error: Clerk API Key missing.";
+                return;
+            }
+
+            window.Clerk.load(CLERK_FRONTEND_API_KEY).then(async (clerk) => {
+                if (clerk.user) {
+                    document.getElementById("user-info").innerText = `Welcome, ${clerk.user.firstName}!`;
+                    document.getElementById("sign-in-btn").style.display = "none";
+                    document.getElementById("sign-out-btn").style.display = "block";
+                    document.getElementById("room-form").style.display = "block";
+                    
+                    // Store user info in session storage for chat.html
+                    sessionStorage.setItem('username', clerk.user.firstName);
+                } else {
+                    document.getElementById("user-info").innerText = "Please sign in to continue.";
+                    document.getElementById("sign-in-btn").style.display = "block";
+                    document.getElementById("room-form").style.display = "none";
+                }
+                
+                document.getElementById("sign-in-btn").addEventListener("click", async () => {
+                    await clerk.openSignIn();
+                });
+
+                document.getElementById("sign-out-btn").addEventListener("click", async () => {
+                    await clerk.signOut();
+                    sessionStorage.removeItem('username');
+                    window.location.reload();
+                });
+            }).catch(error => {
+                console.error("Error loading Clerk:", error);
+                document.getElementById("user-info").innerText = "Authentication service unavailable.";
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatCord App</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+    <!-- Clerk Authentication -->
+    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest"></script>
+    <script src="/config.js"></script>
+
+    <!-- Query String Parser -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qs/6.11.2/qs.min.js"></script>
+
+    <style>
+        body {
+            display: none; /* Hide content until authentication is confirmed */
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <header class="chat-header">
+            <h1><i class="fas fa-smile"></i> ChatCord</h1>
+            <a href="index.html" class="btn">Leave Room</a>
+        </header>
+        <main class="chat-main">
+            <div class="chat-sidebar">
+                <h3><i class="fas fa-comments"></i> Room Name:</h3>
+                <h2 id="room-name"></h2>
+                <h3><i class="fas fa-users"></i> Users</h3>
+                <ul id="users"></ul>
+            </div>
+            <div class="chat-messages"></div>
+        </main>
+        <div class="chat-form-container">
+            <form id="chat-form">
+                <input id="msg" type="text" placeholder="Enter Message" required autocomplete="off" />
+                <button class="btn"><i class="fas fa-paper-plane"></i> Send</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", async () => {
+            console.log("Checking Clerk authentication...");
+
+            if (typeof CLERK_FRONTEND_API_KEY === "undefined") {
+                console.error("Clerk API Key is missing! Make sure config.js is loaded.");
+                window.location.replace("index.html");
+                return;
+            }
+
+            window.Clerk.load(CLERK_FRONTEND_API_KEY).then(async (clerk) => {
+                if (!clerk.user) {
+                    alert("You must be signed in to access the chat!");
+                    window.location.replace("index.html");
+                } else {
+                    // Get username from session storage and room from URL
+                    const username = sessionStorage.getItem('username') || clerk.user.firstName;
+                    const { room } = Qs.parse(location.search, {
+                        ignoreQueryPrefix: true
+                    });
+
+                    if (!room) {
+                        alert("Room selection is required.");
+                        window.location.replace("index.html");
+                        return;
+                    }
+
+                    // Show the chat interface
+                    document.body.style.display = "block";
+                    
+                    // Initialize Socket.io connection
+                    initializeChat(username, room);
+                }
+            }).catch(error => {
+                console.error("Error loading Clerk:", error);
+                alert("Authentication service is currently unavailable.");
+                window.location.replace("index.html");
+            });
+        });
+
+        function initializeChat(username, room) {
+            const socket = io();
+            const chatMessages = document.querySelector('.chat-messages');
+            const chatForm = document.getElementById('chat-form');
+            const roomNameElement = document.getElementById('room-name');
+            const userList = document.getElementById('users');
+
+            // Join chatroom
+            socket.emit('joinRoom', { username, room });
+
+            // Get room and users
+            socket.on('roomUsers', ({ room, users }) => {
+                roomNameElement.innerText = room;
+                outputUsers(users);
+            });
+
+            // Load previous messages from MongoDB (if server supports it)
+            socket.on('loadMessages', (messages) => {
+                messages.forEach(message => {
+                    outputMessage(message);
+                });
+                // Scroll down to the latest messages
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+
+            // Message from server
+            socket.on('message', message => {
+                console.log(message);
+                outputMessage(message);
+
+                // Scroll down
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            });
+
+            // Message submit
+            chatForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+
+                // Get message text
+                const msg = e.target.elements.msg.value;
+
+                // Emit message to server
+                socket.emit('chatMessage', msg);
+
+                // Clear input
+                e.target.elements.msg.value = '';
+                e.target.elements.msg.focus();
+            });
+
+            // Output message to DOM
+            function outputMessage(message) {
+                const div = document.createElement('div');
+                div.classList.add('message');
+                div.innerHTML = `<p class="meta">${message.username} <span>${message.time}</span></p>
+                                <p class="text">${message.text}</p>`;
+                chatMessages.appendChild(div);
+            }
+
+            // Add users to DOM
+            function outputUsers(users) {
+                userList.innerHTML = '';
+                users.forEach(user => {
+                    const li = document.createElement('li');
+                    li.innerText = user.username;
+                    userList.appendChild(li);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
